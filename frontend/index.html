@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CineMatch — Movie Recommender</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --gold:#E8C96D;
+    --gold-dark:#C9A84C;
+    --bg:#0A0A0F;
+    --surface:#13131C;
+    --surface2:#1C1C2A;
+    --border:#2A2A3A;
+    --text:#F0EEE8;
+    --muted:#7A7A9A;
+    --accent:#E8C96D;
+    --red:#E24B4A;
+    --green:#63c940;
+  }
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+  /* ── NOISE TEXTURE ── */
+  body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");opacity:0.4;pointer-events:none;z-index:0}
+
+  /* ── PAGES ── */
+  .page{display:none;min-height:100vh;position:relative;z-index:1}
+  .page.active{display:flex;flex-direction:column}
+
+  /* ── AUTH PAGE ── */
+  #auth-page{align-items:center;justify-content:center;padding:2rem}
+  .auth-container{width:100%;max-width:420px}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--gold);letter-spacing:3px;text-align:center;margin-bottom:0.25rem}
+  .tagline{text-align:center;color:var(--muted);font-size:0.85rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:2.5rem}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;margin-bottom:1rem}
+  .auth-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.75rem}
+  .auth-tab{flex:1;padding:0.75rem;text-align:center;cursor:pointer;font-size:0.9rem;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;transition:all 0.2s}
+  .auth-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+  .form-group{margin-bottom:1.25rem}
+  label{display:block;font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem}
+  input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.95rem;outline:none;transition:border-color 0.2s}
+  input:focus{border-color:var(--gold)}
+  .btn{width:100%;padding:0.85rem;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px}
+  .btn-primary{background:var(--gold);color:#0A0A0F}
+  .btn-primary:hover{background:var(--gold-dark);transform:translateY(-1px)}
+  .btn-primary:active{transform:translateY(0)}
+  .msg{padding:0.65rem 1rem;border-radius:6px;font-size:0.88rem;margin-top:1rem;display:none}
+  .msg.error{background:rgba(226,75,74,0.15);border:1px solid rgba(226,75,74,0.4);color:#f47a7a;display:block}
+  .msg.success{background:rgba(99,201,64,0.12);border:1px solid rgba(99,201,64,0.35);color:#63c940;display:block}
+
+  /* ── APP PAGE ── */
+  #app-page{flex-direction:column}
+  .navbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .nav-logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--gold);letter-spacing:2px}
+  .nav-right{display:flex;align-items:center;gap:1rem}
+  .nav-user{font-size:0.88rem;color:var(--muted)}
+  .nav-user span{color:var(--text);font-weight:500}
+  .btn-logout{background:transparent;border:1px solid var(--border);color:var(--muted);padding:0.4rem 0.85rem;border-radius:6px;font-size:0.82rem;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif}
+  .btn-logout:hover{border-color:var(--red);color:var(--red)}
+
+  .main{padding:2.5rem 2rem;max-width:1100px;margin:0 auto;width:100%}
+
+  /* ── SEARCH ── */
+  .search-section{text-align:center;margin-bottom:3rem}
+  .search-title{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;letter-spacing:2px;margin-bottom:0.5rem}
+  .search-title em{color:var(--gold);font-style:normal}
+  .search-sub{color:var(--muted);margin-bottom:2rem;font-size:0.95rem}
+  .search-bar{display:flex;gap:0.75rem;max-width:600px;margin:0 auto}
+  .search-bar input{flex:1;font-size:1rem;padding:0.9rem 1.25rem;border-radius:10px}
+  .btn-search{background:var(--gold);color:#0A0A0F;border:none;padding:0.9rem 1.75rem;border-radius:10px;font-weight:700;font-size:0.95rem;cursor:pointer;white-space:nowrap;transition:all 0.2s;font-family:'DM Sans',sans-serif;letter-spacing:0.5px}
+  .btn-search:hover{background:var(--gold-dark)}
+  .btn-search:disabled{opacity:0.6;cursor:not-allowed}
+
+  /* ── HISTORY ── */
+  .history-chips{display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-top:1rem}
+  .chip{background:var(--surface);border:1px solid var(--border);padding:0.35rem 0.85rem;border-radius:20px;font-size:0.8rem;color:var(--muted);cursor:pointer;transition:all 0.2s}
+  .chip:hover{border-color:var(--gold);color:var(--gold)}
+  .chip-label{font-size:0.75rem;color:var(--muted);display:flex;align-items:center;gap:0.4rem}
+
+  /* ── RESULTS ── */
+  .results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+  .results-title{font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px}
+  .results-count{font-size:0.82rem;color:var(--gold)}
+  .movies-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1.25rem}
+
+  /* ── MOVIE CARD ── */
+  .movie-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all 0.25s;cursor:default}
+  .movie-card:hover{border-color:var(--gold);transform:translateY(-3px)}
+  .movie-poster{height:160px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:3rem;position:relative;overflow:hidden}
+  .movie-poster-img{width:100%;height:100%;object-fit:cover}
+  .movie-genre-badge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);padding:0.25rem 0.5rem;border-radius:4px;font-size:0.7rem;color:var(--gold);border:1px solid rgba(232,201,109,0.3)}
+  .movie-body{padding:1rem}
+  .movie-title{font-size:0.95rem;font-weight:600;margin-bottom:0.35rem;line-height:1.3;color:var(--text)}
+  .movie-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem}
+  .movie-year{font-size:0.78rem;color:var(--muted)}
+  .movie-rating{display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;color:var(--gold);font-weight:600}
+  .movie-overview{font-size:0.78rem;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+  /* ── LOADING / EMPTY ── */
+  .loader{text-align:center;padding:3rem;display:none}
+  .loader-spin{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loader p{color:var(--muted);font-size:0.9rem}
+  .empty-state{text-align:center;padding:3rem;color:var(--muted)}
+  .empty-state .big{font-size:3rem;margin-bottom:0.75rem}
+  .empty-state p{font-size:0.9rem}
+
+  /* ── TOAST ── */
+  .toast{position:fixed;bottom:2rem;right:2rem;background:var(--surface2);border:1px solid var(--border);padding:0.75rem 1.25rem;border-radius:8px;font-size:0.88rem;opacity:0;transform:translateY(10px);transition:all 0.3s;z-index:999;max-width:300px}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.error{border-color:rgba(226,75,74,0.5);color:#f47a7a}
+  .toast.success{border-color:rgba(99,201,64,0.4);color:var(--green)}
+
+  @media(max-width:600px){
+    .movies-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+    .search-bar{flex-direction:column}
+    .main{padding:1.5rem 1rem}
+    .navbar{padding:0.85rem 1rem}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH PAGE ══ -->
+<div class="page active" id="auth-page">
+  <div class="auth-container">
+    <div class="logo">CineMatch</div>
+    <div class="tagline">✦ Your Personal Movie Intelligence ✦</div>
+
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="switchTab('login')">Sign In</div>
+        <div class="auth-tab" onclick="switchTab('register')">Create Account</div>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="login-form">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+        </div>
+        <button class="btn btn-primary" onclick="login()">Sign In</button>
+        <div class="msg" id="login-msg"></div>
+      </div>
+
+      <!-- REGISTER -->
+      <div id="register-form" style="display:none">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="reg-username" placeholder="moviebuff42"/>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="you@example.com"/>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="reg-password" placeholder="min 6 characters"/>
+        </div>
+        <button class="btn btn-primary" onclick="register()">Create Account</button>
+        <div class="msg" id="reg-msg"></div>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:0.78rem;color:var(--muted)">Powered by TF-IDF content-based filtering &amp; cosine similarity</p>
+  </div>
+</div>
+
+<!-- ══ APP PAGE ══ -->
+<div class="page" id="app-page">
+  <nav class="navbar">
+    <div class="nav-logo">CineMatch</div>
+    <div class="nav-right">
+      <div class="nav-user">Hello, <span id="nav-username">—</span></div>
+      <button class="btn-logout" onclick="logout()">Sign out</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="search-section">
+      <h1 class="search-title">Find movies like <em>any movie</em></h1>
+      <p class="search-sub">Enter a movie title, genre, or mood — get instant recommendations</p>
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder='Try "The Dark Knight" or "comedy"…' onkeydown="if(event.key==='Enter')search()"/>
+        <button class="btn-search" id="search-btn" onclick="search()">Recommend →</button>
+      </div>
+      <div id="history-section" style="display:none;margin-top:1.25rem">
+        <div class="chip-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10l4 4"/><circle cx="12" cy="12" r="10"/></svg> Recent searches</div>
+        <div class="history-chips" id="history-chips"></div>
+      </div>
+    </div>
+
+    <div class="loader" id="loader">
+      <div class="loader-spin"></div>
+      <p>Finding your perfect movies…</p>
+    </div>
+
+    <div id="results-section" style="display:none">
+      <div class="results-header">
+        <div class="results-title" id="results-title">Recommendations</div>
+        <div class="results-count" id="results-count"></div>
+      </div>
+      <div class="movies-grid" id="movies-grid"></div>
+    </div>
+
+    <div class="empty-state" id="empty-state">
+      <div class="big">🎬</div>
+      <p>Search for a movie above to get personalized recommendations</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:5000/api';
+let token = localStorage.getItem('cm_token') || null;
+let username = localStorage.getItem('cm_user') || null;
+
+const EMOJI_POSTERS = ['🎬','🎥','🎦','📽','🍿','🎞','⭐','🌟','🎭','🎪'];
+
+// ── INIT ──
+if(token && username){
+  showApp();
+}
+
+function showApp(){
+  document.getElementById('auth-page').classList.remove('active');
+  document.getElementById('app-page').classList.add('active');
+  document.getElementById('nav-username').textContent = username;
+  loadHistory();
+}
+
+// ── TABS ──
+function switchTab(tab){
+  document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='login'?0:1)));
+  document.getElementById('login-form').style.display = tab==='login'?'block':'none';
+  document.getElementById('register-form').style.display = tab==='register'?'block':'none';
+}
+
+// ── AUTH ──
+async function register(){
+  const u = document.getElementById('reg-username').value.trim();
+  const e = document.getElementById('reg-email').value.trim();
+  const p = document.getElementById('reg-password').value;
+  const msg = document.getElementById('reg-msg');
+  msg.className='msg';msg.style.display='none';
+  try{
+    const r = await fetch(`${API}/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,email:e,password:p})});
+    const d = await r.json();
+    if(!r.ok){msg.className='msg error';msg.textContent=d.error;return;}
+    msg.className='msg success';msg.textContent='Account created! Signing you in…';
+    setTimeout(()=>{ document.getElementById('login-email').value=e; loginWithCreds(e,p); },1000);
+  }catch{showToast('Cannot connect to server. Is Flask running?','error');}
+}
+
+async function login(){
+  const e = document.getElementById('login-email').value.trim();
+  const p = document.getElementById('login-password').value;
+  await loginWithCreds(e,p,'login-msg');
+}
+
+async function loginWithCreds(email,pass,msgId='login-msg'){
+  const msg = document.getElementById(msgId);
+  if(msg){msg.className='msg';msg.style.display='none';}
+  try{
+    const r = await fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const d = await r.json();
+    if(!r.ok){if(msg){msg.className='msg error';msg.textContent=d.error;}return;}
+    token=d.token; username=d.username;
+    localStorage.setItem('cm_token',token);
+    localStorage.setItem('cm_user',username);
+    showApp();
+    showToast(`Welcome back, ${username}! 🎬`,'success');
+  }catch{showToast('Cannot connect to server. Is Flask running?','error');}
+}
+
+function logout(){
+  token=null; username=null;
+  localStorage.removeItem('cm_token'); localStorage.removeItem('cm_user');
+  document.getElementById('app-page').classList.remove('active');
+  document.getElementById('auth-page').classList.add('active');
+  document.getElementById('movies-grid').innerHTML='';
+  document.getElementById('results-section').style.display='none';
+  document.getElementById('empty-state').style.display='block';
+}
+
+// ── SEARCH ──
+async function search(query){
+  const q = query || document.getElementById('search-input').value.trim();
+  if(!q)return;
+  document.getElementById('search-input').value=q;
+  document.getElementById('loader').style.display='block';
+  document.getElementById('results-section').style.display='none';
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('search-btn').disabled=true;
+  try{
+    const r = await fetch(`${API}/recommend`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({query:q})});
+    if(r.status===401){showToast('Session expired. Please log in again.','error');logout();return;}
+    const d = await r.json();
+    document.getElementById('loader').style.display='none';
+    document.getElementById('search-btn').disabled=false;
+    if(!r.ok||!d.results||!d.results.length){
+      document.getElementById('empty-state').style.display='block';
+      showToast(d.error||'No results found','error');
+      return;
+    }
+    renderMovies(d.results, q, d.count);
+    loadHistory();
+  }catch{
+    document.getElementById('loader').style.display='none';
+    document.getElementById('search-btn').disabled=false;
+    document.getElementById('empty-state').style.display='block';
+    showToast('Cannot reach server. Make sure Flask is running on port 5000.','error');
+  }
+}
+
+function renderMovies(movies, query, count){
+
+  document.getElementById('results-title').textContent =
+      `Because you searched "${query}"`;
+
+  document.getElementById('results-count').textContent =
+      `${count} movies found`;
+
+  const grid = document.getElementById('movies-grid');
+
+  grid.innerHTML = movies.map((m,i)=>{
+
+    const year = m.release_date
+      ? m.release_date.substring(0,4)
+      : '—';
+
+    const rating = m.vote_average
+      ? parseFloat(m.vote_average).toFixed(1)
+      : '—';
+
+    const genre =
+      m.genres_list && m.genres_list.length
+      ? m.genres_list[0]
+      : '';
+
+    const overview =
+      m.overview || 'No overview available.';
+
+    return `
+      <div class="movie-card" style="animation:fadeIn 0.3s ease ${i*0.04}s both">
+
+        <div class="movie-poster">
+
+          <img
+            src="${m.poster_url}"
+            class="movie-poster-img"
+            onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'"
+          >
+
+          ${genre ? `<div class="movie-genre-badge">${genre}</div>` : ''}
+
+        </div>
+
+        <div class="movie-body">
+
+          <div class="movie-title">${m.title}</div>
+
+          <div class="movie-meta">
+            <div class="movie-year">${year}</div>
+            <div class="movie-rating">★ ${rating}</div>
+          </div>
+
+          <div class="movie-overview">${overview}</div>
+
+        </div>
+
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('results-section').style.display='block';
+}
+
+
+
+// ── HISTORY ──
+async function loadHistory(){
+  try{
+    const r = await fetch(`${API}/history`,{headers:{'Authorization':`Bearer ${token}`}});
+    if(!r.ok)return;
+    const d = await r.json();
+    const hist = d.history||[];
+    const section = document.getElementById('history-section');
+    const chips = document.getElementById('history-chips');
+    if(hist.length){
+      section.style.display='block';
+      chips.innerHTML = hist.map(h=>`<div class="chip" onclick="search('${h.replace(/'/g,"\\'")}')">🎬 ${h}</div>`).join('');
+    }
+  }catch{}
+}
+
+// ── TOAST ──
+function showToast(msg,type='success'){
+  const t = document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.className='toast',3500);
+}
+
+// ── CSS ANIM ──
+const s = document.createElement('style');
+s.textContent = '@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}';
+document.head.appendChild(s);
+</script>
+</body>
+</html>
